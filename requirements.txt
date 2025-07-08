@@ -1,8 +1,9 @@
-pandas
-numpy
-scikit-learn
+streamlit
 xgboost
-scipy
+scikit-learn
 joblib
 imbalanced-learn
-streamlit
+scipy
+pandas
+numpy
+streamlit-echarts

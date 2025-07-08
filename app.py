@@ -2,103 +2,130 @@ import streamlit as st
 import joblib
 import numpy as np
 from scipy.sparse import hstack
+from streamlit_echarts import st_echarts
 
 # Load models
-reg = joblib.load('xgb_rating_model.pkl')
-clf = joblib.load('xgb_side_effect_model.pkl')
-tfidf = joblib.load('tfidf_vectorizer.pkl')
+reg = joblib.load("xgb_rating_model.pkl")
+clf = joblib.load("xgb_side_effect_model.pkl")
+tfidf = joblib.load("tfidf_vectorizer.pkl")
 
-# --- Page Config ---
+# Page Config
 st.set_page_config(
-    page_title="Drug Effectiveness & Side Effect Predictor",
+    page_title="Drug Predictor Dashboard",
     page_icon="💊",
-    layout="centered",
-    initial_sidebar_state="auto",
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-# --- Dark Theme Styling ---
 st.markdown("""
     <style>
         body {
             background-color: #0b132b;
             color: #e0e6ed;
         }
-        .stTextInput, .stTextArea, .stNumberInput {
+        .reportview-container .markdown-text-container {
+            color: white;
+        }
+        .stTextInput>div>div>input {
             background-color: #1c2541;
             color: white;
-        }
-        .main {
-            background-color: #0b132b;
-            padding: 2rem;
-        }
-        .stButton>button {
-            background-color: #3a506b;
-            color: white;
-            border-radius: 10px;
-            height: 3em;
-            width: 100%;
-        }
-        .stButton>button:hover {
-            background-color: #5bc0be;
-            color: black;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# --- Header ---
-st.title("💊 Drug Effectiveness & Side Effect Predictor")
-st.markdown("Predict how effective a drug might be and whether it may cause side effects based on its properties.")
+st.title("💊 Drug Prediction Dashboard")
+st.markdown("Predict drug effectiveness and side effects with real-time visual feedback.")
 
-# --- Input Form ---
-with st.form("prediction_form"):
-    st.subheader("🔬 Drug Information")
+# Input form
+with st.form("form"):
+    col1, col2 = st.columns(2)
 
-    drug_name = st.text_input("Drug Name", help="Enter the name of the drug (e.g., Aspirin)")
-    generic_name = st.text_input("Generic Name", help="Main active ingredient or compound")
-    brand_names = st.text_input("Brand Names", help="List common brand names, separated by commas")
-    drug_classes = st.text_input("Drug Classes", help="Therapeutic or pharmacologic class (e.g., NSAID, antibiotic)")
-    related_drugs = st.text_input("Related Drugs", help="Any known related or similar drugs")
-    medical_condition = st.text_input("Medical Condition", help="Condition this drug is used to treat (e.g., Headache)")
-    medical_condition_description = st.text_area("Medical Condition Description", help="Brief description of the condition")
-    activity = st.number_input("Activity (%)", min_value=0.0, max_value=100.0, value=80.0, help="Estimated pharmacological activity of the drug in %")
-    side_effects = st.text_area("Known Side Effects (optional)", help="Known or documented side effects (if any)")
+    with col1:
+        drug_name = st.text_input("Drug Name", "")
+        generic_name = st.text_input("Generic Name", "")
+        brand_names = st.text_input("Brand Names", "")
+        drug_classes = st.text_input("Drug Classes", "")
+        related_drugs = st.text_input("Related Drugs", "")
 
-    submit = st.form_submit_button("🔍 Predict")
+    with col2:
+        medical_condition = st.text_input("Medical Condition", "")
+        medical_condition_description = st.text_area("Condition Description", "")
+        activity = st.number_input("Drug Activity (%)", min_value=0.0, max_value=100.0, value=75.0)
+        side_effects = st.text_area("Known Side Effects (optional)", "")
 
-# --- On Submit ---
-if submit:
-    # Combine all inputs into one text string
+    submitted = st.form_submit_button("🔍 Predict")
+
+# On submit
+if submitted:
+    # Build input string
     combined_text = " ".join([
         drug_name, generic_name, brand_names, drug_classes,
         related_drugs, side_effects, medical_condition, medical_condition_description
     ])
 
-    # Vectorize and format inputs
     X_text_input = tfidf.transform([combined_text])
     X_numeric_input = np.array([[activity]])
     X_input = hstack([X_text_input, X_numeric_input])
 
-    # Predict
-    pred_rating = reg.predict(X_input)[0]
-    pred_side = clf.predict(X_input)[0]
+    pred_rating = float(reg.predict(X_input)[0])
+    pred_side_effect = int(clf.predict(X_input)[0])
 
-    st.subheader("📊 Results")
-    
-    # Display predictions with interpretation
-    st.markdown(f"**Predicted Effectiveness Rating:** `{pred_rating:.2f}` out of 10")
-    if pred_rating >= 8:
-        st.success("🌟 The drug is predicted to be highly effective.")
-    elif pred_rating >= 5:
-        st.warning("⚠️ The drug may be moderately effective.")
-    else:
-        st.error("❌ The drug is predicted to have low effectiveness.")
+    # --- Rating Visualization ---
+    st.subheader("📈 Effectiveness Rating")
 
-    st.markdown(f"**Side Effect Risk:** `{ 'Yes' if pred_side == 1 else 'No' }`")
-    if pred_side == 1:
-        st.warning("🚨 This drug is likely to have side effects. Monitor carefully.")
-    else:
-        st.success("✅ No significant side effects predicted.")
+    rating_options = {
+        "tooltip": {"formatter": "{a} <br/>{b} : {c}/10"},
+        "series": [{
+            "type": "gauge",
+            "startAngle": 180,
+            "endAngle": 0,
+            "min": 0,
+            "max": 10,
+            "pointer": {"show": True},
+            "progress": {"show": True, "width": 15},
+            "axisLine": {
+                "lineStyle": {
+                    "width": 15,
+                    "color": [[0.5, "#ef476f"], [0.8, "#ffd166"], [1, "#06d6a0"]]
+                }
+            },
+            "detail": {"formatter": f"{pred_rating:.2f}"},
+            "data": [{"value": pred_rating, "name": "Rating"}]
+        }]
+    }
+    st_echarts(rating_options, height="300px")
 
+    # --- Side Effect Prediction ---
+    st.subheader("⚠️ Side Effect Prediction")
+
+    pie_options = {
+        "tooltip": {"trigger": "item"},
+        "legend": {"top": "bottom"},
+        "series": [{
+            "name": "Risk",
+            "type": "pie",
+            "radius": ["40%", "70%"],
+            "avoidLabelOverlap": False,
+            "label": {"show": False},
+            "emphasis": {"label": {"show": True, "fontSize": "18"}},
+            "labelLine": {"show": False},
+            "data": [
+                {"value": 1 if pred_side_effect == 1 else 0, "name": "Side Effects", "itemStyle": {"color": "#ff6b6b"}},
+                {"value": 1 if pred_side_effect == 0 else 0, "name": "No Side Effects", "itemStyle": {"color": "#4ecdc4"}}
+            ]
+        }]
+    }
+    st_echarts(pie_options, height="300px")
+
+    # --- Summary ---
     st.markdown("---")
-    st.caption("💡 This model uses both textual and numeric data for prediction. Results are for informational purposes only and not a substitute for medical advice.")
+    st.success(f"✅ **Predicted Rating:** {pred_rating:.2f} / 10")
+    st.info("📊 High rating indicates good effectiveness.")
+
+    if pred_side_effect:
+        st.error("⚠️ Likely to cause side effects.")
+    else:
+        st.success("✅ Unlikely to cause side effects.")
+
+    st.caption("🧠 This dashboard uses a machine learning model trained on real drug data from Drugs.com.")
 
