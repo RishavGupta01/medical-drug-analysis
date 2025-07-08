@@ -77,7 +77,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Title ---
-st.title("💊 Drug Effectiveness & Side Effect Predictor")
+st.title("Drug Effectiveness & Side Effect Predictor")
 st.markdown("Use this AI-powered tool to estimate a drug's effectiveness and potential side effects based on its description and activity.")
 
 # --- Input Form ---
