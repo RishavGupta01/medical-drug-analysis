@@ -8,97 +8,137 @@ reg = joblib.load('xgb_rating_model.pkl')
 clf = joblib.load('xgb_side_effect_model.pkl')
 tfidf = joblib.load('tfidf_vectorizer.pkl')
 
-# --- Page Config ---
+# --- Page Configuration ---
 st.set_page_config(
-    page_title="Drug Effectiveness & Side Effect Predictor",
-    page_icon="💊",
-    layout="centered",
-    initial_sidebar_state="auto",
+    page_title="Drug Analysis",
+    page_icon="💉",
+    layout="centered"
 )
 
-# --- Dark Theme Styling ---
+# --- Custom Styling ---
 st.markdown("""
     <style>
-        body {
-            background-color: #0b132b;
-            color: #e0e6ed;
+        html, body, [class*="css"]  {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #0f1c2e;
+            color: #d8e3e7;
         }
-        .stTextInput, .stTextArea, .stNumberInput {
-            background-color: #1c2541;
+
+        .block-container {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            max-width: 800px;
+            margin: auto;
+        }
+
+        .stTextInput input, .stTextArea textarea, .stNumberInput input {
+            background-color: #1e2a38;
             color: white;
+            border-radius: 0.5rem;
+            border: 1px solid #3a506b;
+            padding: 0.5rem;
         }
-        .main {
-            background-color: #0b132b;
-            padding: 2rem;
-        }
+
         .stButton>button {
-            background-color: #3a506b;
+            background-color: #3a86ff;
             color: white;
-            border-radius: 10px;
-            height: 3em;
+            border-radius: 0.5rem;
+            padding: 0.6rem 1rem;
+            font-weight: 600;
+            transition: 0.3s ease;
             width: 100%;
         }
+
         .stButton>button:hover {
-            background-color: #5bc0be;
+            background-color: #00b4d8;
             color: black;
+        }
+
+        .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
+            color: #caffbf;
+        }
+
+        .stCaption, .stSubheader, .stMarkdown p {
+            color: #adb5bd;
+        }
+
+        .result-box {
+            background-color: #172a3a;
+            padding: 1rem;
+            border-radius: 0.7rem;
+            border-left: 4px solid #00b4d8;
+            margin-top: 1rem;
+        }
+
+        .stAlert {
+            border-radius: 0.6rem;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# --- Header ---
+# --- Title ---
 st.title("💊 Drug Effectiveness & Side Effect Predictor")
-st.markdown("Predict how effective a drug might be and whether it may cause side effects based on its properties.")
+st.markdown("Use this AI-powered tool to estimate a drug's effectiveness and potential side effects based on its description and activity.")
 
 # --- Input Form ---
 with st.form("prediction_form"):
-    st.subheader("🔬 Drug Information")
+    st.subheader("🧾 Enter Drug Information")
 
-    drug_name = st.text_input("Drug Name", help="Enter the name of the drug (e.g., Aspirin)")
-    generic_name = st.text_input("Generic Name", help="Main active ingredient or compound")
-    brand_names = st.text_input("Brand Names", help="List common brand names, separated by commas")
-    drug_classes = st.text_input("Drug Classes", help="Therapeutic or pharmacologic class (e.g., NSAID, antibiotic)")
-    related_drugs = st.text_input("Related Drugs", help="Any known related or similar drugs")
-    medical_condition = st.text_input("Medical Condition", help="Condition this drug is used to treat (e.g., Headache)")
-    medical_condition_description = st.text_area("Medical Condition Description", help="Brief description of the condition")
-    activity = st.number_input("Activity (%)", min_value=0.0, max_value=100.0, value=80.0, help="Estimated pharmacological activity of the drug in %")
-    side_effects = st.text_area("Known Side Effects (optional)", help="Known or documented side effects (if any)")
+    col1, col2 = st.columns(2)
+    with col1:
+        drug_name = st.text_input("Drug Name", help="Name of the drug (e.g., Ibuprofen)")
+        generic_name = st.text_input("Generic Name", help="Active compound (e.g., Ibuprofen)")
+        brand_names = st.text_input("Brand Names", help="Comma-separated brand names")
+        related_drugs = st.text_input("Related Drugs", help="List of similar drugs (if any)")
 
-    submit = st.form_submit_button("🔍 Predict")
+    with col2:
+        drug_classes = st.text_input("Drug Classes", help="E.g., NSAID, Antihistamine")
+        medical_condition = st.text_input("Medical Condition", help="Treated condition (e.g., Migraine)")
+        activity = st.number_input("Activity (%)", min_value=0.0, max_value=100.0, value=75.0,
+                                   help="Estimated pharmacological activity of the drug (0-100%)")
 
-# --- On Submit ---
-if submit:
-    # Combine all inputs into one text string
-    combined_text = " ".join([
-        drug_name, generic_name, brand_names, drug_classes,
-        related_drugs, side_effects, medical_condition, medical_condition_description
-    ])
+    medical_condition_description = st.text_area("Medical Condition Description",
+                                                 help="Short description of the medical condition.")
+    side_effects = st.text_area("Known Side Effects (optional)",
+                                help="Mention any known side effects.")
 
-    # Vectorize and format inputs
-    X_text_input = tfidf.transform([combined_text])
-    X_numeric_input = np.array([[activity]])
-    X_input = hstack([X_text_input, X_numeric_input])
+    submitted = st.form_submit_button("🔍 Predict")
 
-    # Predict
-    pred_rating = reg.predict(X_input)[0]
-    pred_side = clf.predict(X_input)[0]
+# --- Prediction & Output ---
+if submitted:
+    with st.spinner("Running predictions..."):
+        combined_text = " ".join([
+            drug_name, generic_name, brand_names, drug_classes,
+            related_drugs, side_effects, medical_condition, medical_condition_description
+        ])
 
-    st.subheader("📊 Results")
-    
-    # Display predictions with interpretation
-    st.markdown(f"**Predicted Effectiveness Rating:** `{pred_rating:.2f}` out of 10")
-    if pred_rating >= 8:
-        st.success("🌟 The drug is predicted to be highly effective.")
-    elif pred_rating >= 5:
-        st.warning("⚠️ The drug may be moderately effective.")
-    else:
-        st.error("❌ The drug is predicted to have low effectiveness.")
+        X_text_input = tfidf.transform([combined_text])
+        X_numeric_input = np.array([[activity]])
+        X_input = hstack([X_text_input, X_numeric_input])
 
-    st.markdown(f"**Side Effect Risk:** `{ 'Yes' if pred_side == 1 else 'No' }`")
-    if pred_side == 1:
-        st.warning("🚨 This drug is likely to have side effects. Monitor carefully.")
-    else:
-        st.success("✅ No significant side effects predicted.")
+        pred_rating = reg.predict(X_input)[0]
+        pred_side = clf.predict(X_input)[0]
+
+    st.subheader("📊 Prediction Results")
+
+    with st.container():
+        st.markdown(f"""
+        <div class="result-box">
+            <h3>⭐ Predicted Effectiveness Rating: <span style="color:#ffd60a;">{pred_rating:.2f} / 10</span></h3>
+            {"<p style='color:#95d5b2;'>🌟 Highly effective</p>" if pred_rating >= 8 else 
+             "<p style='color:#f4a261;'>⚠️ Moderate effectiveness</p>" if pred_rating >= 5 else
+             "<p style='color:#f94144;'>❌ Low effectiveness</p>"}
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class="result-box">
+            <h3>💥 Predicted Side Effects Risk: 
+                <span style="color:{'#f94144' if pred_side else '#80ed99'};">{'Yes' if pred_side else 'No'}</span>
+            </h3>
+            {"<p style='color:#f94144;'>🚨 Potential for side effects.</p>" if pred_side else "<p style='color:#80ed99;'>✅ No major side effects predicted.</p>"}
+        </div>
+        """, unsafe_allow_html=True)
 
     st.markdown("---")
-    st.caption("💡 This model uses both textual and numeric data for prediction. Results are for informational purposes only and not a substitute for medical advice.")
-
+    st.caption("🔍 These predictions are AI-generated using clinical text + activity data. For informational use only, not a substitute for medical advice.")
