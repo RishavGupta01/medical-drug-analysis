@@ -12,7 +12,7 @@ tfidf = joblib.load("tfidf_vectorizer.pkl")
 # Page Config
 st.set_page_config(
     page_title="Drug Predictor Dashboard",
-    page_icon="💊",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -33,7 +33,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("💊 Drug Prediction Dashboard")
+st.title("Drug Prediction")
 st.markdown("Predict drug effectiveness and side effects with real-time visual feedback.")
 
 # Input form
@@ -127,5 +127,5 @@ if submitted:
     else:
         st.success("✅ Unlikely to cause side effects.")
 
-    st.caption("🧠 This dashboard uses a machine learning model trained on real drug data from Drugs.com.")
+    st.caption("This dashboard uses a machine learning model trained on real drug data from Drugs.com.(Data might be inaccurate, this is just for learning purposes)")
 
